@@ -139,6 +139,35 @@ Live HLS can stall if a segment is missed. `watchdog.py` checks whether the TV i
 | `static/` | HTML versions of the pages (usable in a normal browser) |
 | `tools/make_screenshots.py` | regenerates the images above |
 
+## Casting gotchas worth knowing
+
+Three things that cost real time and are not obvious:
+
+- **HLS must be served with `Access-Control-Allow-Origin`.** The Cast receiver is a
+  browser app, and its HLS player fetches the playlist and segments via XHR, so the
+  browser CORS-checks them. Without the header the TV still *requests* the playlist
+  (it shows up in your server log) but cannot read the response, so it never asks
+  for a single segment and the player sits in `IDLE`. Symptom to remember:
+  **playlist requests with zero segment requests.** Progressive MP4 plays fine
+  without CORS, which makes the TV look healthy and sends you hunting in the wrong
+  place.
+- **`catt cast_site` (DashCast) may launch but never navigate.** On the
+  Chromecast HD / Google TV firmware tested here it reports *"Application ready"*
+  and then makes zero requests, even to a valid public HTTPS URL. That is why the
+  TV screen is a video stream instead.
+- **The Cast media status lies on a fresh connection.** `pychromecast` often reports
+  `UNKNOWN` right after connecting even while the TV is happily playing. Use your
+  server's request log as ground truth — that is exactly what `watchdog.py` does.
+
+## Related
+
+- **[`convex-spike` branch](https://github.com/Mezee/cast-party-quiz/tree/convex-spike)** —
+  an alternative backend on [Convex](https://convex.dev): all game logic in Convex
+  (schema, mutations, one reactive query, `scheduler` transitions), with the box
+  reduced to a display adapter. Drops polling entirely and adds persistence,
+  history and multi-game support. Notes and findings:
+  [`README-convex.md`](https://github.com/Mezee/cast-party-quiz/blob/convex-spike/README-convex.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
