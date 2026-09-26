@@ -159,14 +159,22 @@ Three things that cost real time and are not obvious:
   `UNKNOWN` right after connecting even while the TV is happily playing. Use your
   server's request log as ground truth — that is exactly what `watchdog.py` does.
 
-## Related
+## Two implementations
 
-- **[`convex-spike` branch](https://github.com/Mezee/cast-party-quiz/tree/convex-spike)** —
-  an alternative backend on [Convex](https://convex.dev): all game logic in Convex
-  (schema, mutations, one reactive query, `scheduler` transitions), with the box
-  reduced to a display adapter. Drops polling entirely and adds persistence,
-  history and multi-game support. Notes and findings:
-  [`README-convex.md`](https://github.com/Mezee/cast-party-quiz/blob/convex-spike/README-convex.md).
+This repo ships both backends. They share `render.py`, `cast_tv.py` and the whole
+Pillow -> ffmpeg -> HLS pipeline; only the game-state layer differs.
+
+- **`server.py` + `tvstream.py`** (the original) — one Python process, in-memory
+  state, no external dependencies. Fully local: works even if the internet is
+  down.
+- **`convex/` + `convex_adapter.py` + `convex_subscriber.py`** — game logic on
+  [Convex](https://convex.dev): schema, mutations, one reactive query, and
+  `scheduler` transitions. Drops polling entirely and adds persistence, history
+  and multi-game support, at the cost of needing the internet and a third party.
+  Start with [`README-convex.md`](README-convex.md).
+
+Pick whichever fits: the local one for a party that must not fail, the Convex one
+for leaderboards, history and remote players.
 
 ## License
 
