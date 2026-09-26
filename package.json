@@ -1,0 +1,16 @@
+{
+  "name": "cast-party-quiz-convex",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "deploy": "convex deploy",
+    "codegen": "convex codegen"
+  },
+  "dependencies": {
+    "convex": "^1.46.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

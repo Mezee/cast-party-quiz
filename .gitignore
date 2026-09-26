@@ -1,8 +1,15 @@
 venv/
+node_modules/
 __pycache__/
 *.py[cod]
 *.log
 *.pid
-*.ts
-*.m3u8
 .DS_Store
+
+# HLS output (only if STREAM_DIR points inside the repo)
+stream/
+*.m3u8
+
+# Convex
+.env.local
+.convex/
