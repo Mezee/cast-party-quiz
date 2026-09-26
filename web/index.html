@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Party Quiz — Convex</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#12121c">
+<style>
+  :root{--red:#e21b3c;--blue:#1368ce;--yellow:#d89e00;--green:#26890c;--bg:#12121c;--panel:#1d1d2e;--ink:#f5f5ff;--dim:#9aa0b5}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       display:flex;flex-direction:column;min-height:100vh;touch-action:manipulation}
+  header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;background:var(--panel);font-weight:800}
+  main{flex:1;display:flex;flex-direction:column;gap:12px;padding:16px}
+  h1{font-size:24px;margin:0;font-weight:900;line-height:1.2}
+  .muted{color:var(--dim)}
+  .btn{border:0;border-radius:16px;padding:18px;font-size:18px;font-weight:900;color:#fff;display:flex;gap:12px;align-items:center;width:100%}
+  .btn:active{transform:scale(.98)}
+  .o0{background:var(--red)}.o1{background:var(--blue)}.o2{background:var(--yellow)}.o3{background:var(--green)}
+  .btn.sel{outline:4px solid #fff}.btn.correct{outline:5px solid #fff}.btn.dim{opacity:.3}
+  .card{background:var(--panel);border-radius:16px;padding:16px;text-align:center;font-weight:800}
+  input{width:100%;padding:16px;border-radius:14px;border:2px solid #333a55;background:#0d0d16;color:var(--ink);font-size:20px;font-weight:700}
+  .primary{background:linear-gradient(135deg,#39d353,#7ee787);color:#08130a;border:0;border-radius:14px;padding:16px;font-size:18px;font-weight:900;width:100%}
+  .row{display:flex;justify-content:space-between;padding:10px 12px;background:var(--panel);border-radius:12px;font-weight:800}
+  .row.top{background:linear-gradient(90deg,#3a2f00,#1d1d2e);border:2px solid #ffd166}
+  .pill{background:#2a2a45;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;color:var(--dim);display:inline-block}
+  .pts{color:#7ee787;font-weight:900}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hostbtn{background:#2a2a45;color:#fff;border:0;border-radius:12px;padding:16px;font-weight:900;font-size:16px}
+  .go{background:linear-gradient(135deg,#39d353,#7ee787);color:#08130a}
+</style>
+</head>
+<body>
+<header>
+  <div id="who">Party Quiz</div>
+  <div id="conn" class="pill">connecting…</div>
+</header>
+<main id="main"><div class="muted">Loading…</div></main>
+
+<script type="module">
+import { ConvexClient } from "https://esm.sh/convex@1.46.0/browser";
+
+const cfg = await (await fetch("/config.json")).json();
+const asHost = location.pathname === "/host" ||
+               new URLSearchParams(location.search).get("as") === "host";
+const client = new ConvexClient(cfg.convexUrl);
+const gameId = cfg.gameId;
+let playerId = localStorage.getItem("cq_pid") || null;
+let S = null;
+
+const esc = s => (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+// A Convex FunctionReference is just {[Symbol.for("functionName")]: name},
+// so we can build them inline without importing generated code.
+const fn = name => ({ [Symbol.for("functionName")]: name });
+const OPT = [{c:"o0",s:"▲"},{c:"o1",s:"◆"},{c:"o2",s:"●"},{c:"o3",s:"■"}];
+const I = x => x==null?null:Math.round(Number(x));
+const secsLeft = () => S && S.phase==="question" && S.phaseEndsAt
+  ? Math.max(0, Math.ceil(Number(S.phaseEndsAt)/1000 - Date.now()/1000)) : null;
+
+async function join(){
+  const v = (document.getElementById("nm")?.value || "").trim();
+  if(!v){ msg("Type a name first"); return; }
+  try{
+    const r = await client.mutation(fn("games:joinGame"), { gameId, name: v });
+    playerId = r.playerId; localStorage.setItem("cq_pid", playerId);
+    if(S) render();
+  }catch(e){ msg("Could not join: "+e.message); }
+}
+const msg = t => { const m=document.getElementById("jmsg"); if(m) m.textContent=t; };
+
+async function act(action){
+  try{ await client.mutation(fn("games:hostAction"), { gameId, action }); }catch(e){ alert(e.message); }
+}
+async function start(){ try{ await client.mutation(fn("games:startGame"), { gameId }); }catch(e){ alert(e.message); } }
+async function answer(i){
+  if(!playerId) return;
+  try{ await client.mutation(fn("games:submitAnswer"), { gameId, playerId, choice: i }); }
+  catch(e){ /* idempotent server-side; ignore */ }
+}
+
+function renderHost(){
+  const s = S || {};
+  document.getElementById("who").textContent = "Host console";
+  document.getElementById("main").innerHTML = `
+    <div class="pill">phase: ${esc(s.phase)}</div>
+    <div class="pill">${I(s.playerCount)||0} players</div>
+    <div class="pill">${I(s.answered)||0} answered</div>
+    <h1>${s.question ? esc(s.cat)+" — "+esc(s.question) : "Lobby"}</h1>
+    <div class="grid">
+      <button class="hostbtn go" onclick="PQ.start()">▶ Start</button>
+      <button class="hostbtn" onclick="PQ.act('reveal')">Reveal</button>
+      <button class="hostbtn" onclick="PQ.act('scores')">Scores</button>
+      <button class="hostbtn" onclick="PQ.act('next')">Next ⏭</button>
+      <button class="hostbtn" onclick="PQ.act('addTime')">+10s</button>
+      <button class="hostbtn" onclick="PQ.act('restart')">Restart</button>
+    </div>
+    ${(s.ranking||[]).map(r=>`<div class="row ${I(r.rank)===1?'top':''}"><span>${I(r.rank)}. ${esc(r.name)}</span><span>${I(r.score)}</span></div>`).join("")}`;
+}
+
+function renderPlayer(){
+  const main = document.getElementById("main");
+  if(!playerId){
+    document.getElementById("who").textContent = "Join the quiz";
+    main.innerHTML = `<h1>Join the quiz</h1><p class="muted">Enter a name the TV will show</p>
+      <input id="nm" placeholder="Your name" maxlength="16" autocomplete="off">
+      <button class="primary" onclick="PQ.join()">Join</button>
+      <div class="pill" id="jmsg">Real-time via Convex — no polling</div>`;
+    document.getElementById("nm").addEventListener("keydown", e => { if(e.key==="Enter") join(); });
+    return;
+  }
+  if(!S){ main.innerHTML = '<div class="muted">Waiting for state…</div>'; return; }
+  const y = S.you || {};
+  document.getElementById("who").textContent = y.name || "Player";
+  const sl = secsLeft();
+
+  if(S.phase === "lobby"){
+    main.innerHTML = `<div class="card">✅ You're in!</div><div class="muted">Waiting for the host…</div>
+      <div class="pill">${I(S.playerCount)} players</div>`;
+    return;
+  }
+  if(S.phase === "final"){
+    main.innerHTML = `<h1>🏁 You finished #${I(y.rank)||"-"}</h1><div class="pts" style="font-size:28px">${I(y.score)||0} pts</div>`
+      + (S.ranking||[]).slice(0,5).map(r=>`<div class="row ${I(r.rank)===1?'top':''}"><span>${I(r.rank)}. ${esc(r.name)}</span><span>${I(r.score)}</span></div>`).join("");
+    return;
+  }
+  const revealed = S.phase==="reveal" || S.phase==="scores";
+  const opts = (S.options||[]).map((o,i)=>{
+    let cls = OPT[i].c;
+    if(revealed){ if(I(S.answer)===i) cls+=" correct"; else if(I(y.choice)!==i) cls+=" dim"; }
+    else if(I(y.choice)===i) cls+=" sel";
+    const tap = (S.phase==="question" && y.choice==null) ? `onclick="PQ.answer(${i})"` : "";
+    return `<button class="btn ${cls}" ${tap}><span>${OPT[i].s}</span><span>${esc(o)}</span></button>`;
+  }).join("");
+
+  let banner = "";
+  if(S.phase==="question"){
+    banner = y.choice!=null ? `<div class="card">🔒 Locked in</div>`
+      : `<div class="card">Tap your answer · ${sl}s</div>`;
+  } else if(revealed){
+    banner = y.choice==null ? `<div class="card">No answer</div>`
+      : (y.correct ? `<div class="card">✅ Correct! <span class="pts">+${I(y.points)}</span></div>`
+                   : `<div class="card">❌ Wrong — it was ${esc(S.options[I(S.answer)])}</div>`);
+  }
+  main.innerHTML = `<div class="pill">Q${I(S.questionIndex)+1} / ${I(S.questionCount)} · ${esc(S.cat)}</div>
+    <h1>${esc(S.question)}</h1>${banner}<div style="display:flex;flex-direction:column;gap:10px">${opts}</div>`;
+}
+
+function render(){
+  document.getElementById("conn").textContent = "live";
+  asHost ? renderHost() : renderPlayer();
+}
+
+// one reactive subscription — Convex pushes updates, no polling anywhere
+const args = playerId ? { gameId, playerId } : { gameId };
+client.onUpdate(fn("games:gameState"), args, (value) => { S = value; render(); });
+setInterval(() => { if(S && S.phase==="question") render(); }, 1000); // local countdown only
+
+window.PQ = { join, act, start, answer };
+</script>
+</body>
+</html>
