@@ -135,12 +135,21 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        # Required: the Cast receiver fetches the HLS playlist and segments via
+        # XHR, so without CORS it sees the responses as blocked and refuses to
+        # play (the requests still land here, which is why it looks like the
+        # receiver "fetches the playlist then ignores it").
+        self.send_header("Access-Control-Allow-Origin", "*")
         self.end_headers()
         if self.command != "HEAD":
             self.wfile.write(body)
 
+    def do_HEAD(self):
+        self.do_GET()
+
     def do_GET(self):
         path = self.path.split("?")[0]
+        print(f"  {self.client_address[0]} {self.command} {path}", flush=True)
         if path == "/config.json":
             body = json.dumps({"convexUrl": self.convex_url, "gameId": self.game_id})
             return self._send(200, body, "application/json")

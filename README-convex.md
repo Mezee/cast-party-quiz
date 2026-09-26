@@ -64,6 +64,20 @@ These cost real debugging time and are worth knowing:
    threw `Not accepting answers right now`. Reordered so an existing answer is
    returned early.
 
+7. **HLS served without `Access-Control-Allow-Origin` will not play on a Cast
+   device.** This cost the most time. The Default Media Receiver is a browser
+   app and its HLS player fetches the playlist and segments via XHR, so the
+   browser CORS-checks them. Without the header the TV still *requests* the
+   playlist (it shows up in your server log) but cannot read the response, so it
+   never asks for a single segment and the player sits in `IDLE`. Symptom to
+   remember: **playlist requests with zero segment requests**. Progressive MP4
+   plays fine without CORS (media element, not XHR), which makes it look like
+   the TV is healthy — it is, the HLS just needs the header.
+
+8. **`--dev-deployment local` is worth knowing about.** It downloads a backend
+   binary and runs a full deployment locally (SQLite under `.convex/`), which is
+   what made it possible to build and verify all of this offline.
+
 ## Running it
 
 ```bash

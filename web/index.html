@@ -41,7 +41,8 @@
 import { ConvexClient } from "https://esm.sh/convex@1.46.0/browser";
 
 const cfg = await (await fetch("/config.json")).json();
-const asHost = new URLSearchParams(location.search).get("as") === "host";
+const asHost = location.pathname === "/host" ||
+               new URLSearchParams(location.search).get("as") === "host";
 const client = new ConvexClient(cfg.convexUrl);
 const gameId = cfg.gameId;
 let playerId = localStorage.getItem("cq_pid") || null;
