@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Party Quiz — Play</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#12121c">
+<style>
+  :root{--red:#e21b3c;--blue:#1368ce;--yellow:#d89e00;--green:#26890c;--bg:#12121c;--panel:#1d1d2e;--ink:#f5f5ff;--dim:#9aa0b5}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+       display:flex;flex-direction:column;overflow:hidden;touch-action:manipulation}
+  header{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--panel);font-weight:800}
+  header .you{font-size:15px}
+  header .sc{color:#7ee787}
+  #main{flex:1;display:flex;flex-direction:column;padding:16px;gap:14px;overflow-y:auto}
+  h1{font-size:26px;margin:0;font-weight:900;line-height:1.2}
+  .muted{color:var(--dim)}
+  .btn{border:0;border-radius:16px;padding:20px;font-size:19px;font-weight:900;color:#fff;display:flex;align-items:center;gap:12px;
+       width:100%;cursor:pointer;transition:transform .08s}
+  .btn:active{transform:scale(.97)}
+  .btn .shape{font-size:24px}
+  .o0{background:var(--red)} .o1{background:var(--blue)} .o2{background:var(--yellow)} .o3{background:var(--green)}
+  .btn.sel{outline:4px solid #fff}
+  .btn.dim{opacity:.3}
+  .btn.correct{outline:5px solid #fff;box-shadow:0 0 30px rgba(255,255,255,.5)}
+  .card{background:var(--panel);border-radius:16px;padding:18px;text-align:center;font-weight:800;font-size:18px}
+  input{width:100%;padding:16px;border-radius:14px;border:2px solid #333a55;background:#0d0d16;color:var(--ink);font-size:20px;font-weight:700}
+  .primary{background:linear-gradient(135deg,#39d353,#7ee787);color:#08130a;border:0;border-radius:14px;padding:18px;font-size:20px;font-weight:900;width:100%}
+  .big{font-size:34px;font-weight:900}
+  .pts{color:#7ee787;font-size:30px;font-weight:900}
+  .row{display:flex;justify-content:space-between;padding:12px 14px;background:var(--panel);border-radius:12px;font-weight:800}
+  .row.top{background:linear-gradient(90deg,#3a2f00,#1d1d2e);border:2px solid #ffd166}
+  .pill{background:#2a2a45;border-radius:999px;padding:6px 14px;font-size:13px;font-weight:800;color:var(--dim)}
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <div class="you" id="who">Party Quiz</div>
+  <div class="sc" id="myscore"></div>
+</header>
+<div id="main"></div>
+<script>
+const OPT=[{cls:'o0',shape:'\u25B2'},{cls:'o1',shape:'\u25C6'},{cls:'o2',shape:'\u25CF'},{cls:'o3',shape:'\u25A0'}];
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let pid=localStorage.getItem('pq_pid');
+let myname=localStorage.getItem('pq_name')||'';
+let S=null, busy=false;
+let formMounted=false, lastSig=null;
+
+async function join(pref){
+  const el=document.getElementById('nm');
+  const v=String(pref!=null?pref:(el&&el.value)||'').trim();
+  if(!v){ setJoinMsg('Please type a name first'); return; }
+  setJoinMsg('Joining\u2026');
+  try{
+    const r=await fetch('/api/join',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:v})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    pid=d.pid; myname=d.name;
+    localStorage.setItem('pq_pid',pid); localStorage.setItem('pq_name',myname);
+    S=d.state; formMounted=false; lastSig=null; render();
+  }catch(e){
+    setJoinMsg('Could not join: '+e.message);
+  }
+}
+function setJoinMsg(t){
+  const m=document.getElementById('joinmsg');
+  if(m) m.textContent=t;
+}
+async function answer(i){
+  if(busy) return; busy=true;
+  try{
+    const r=await fetch('/api/answer',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pid,choice:i})});
+    const d=await r.json();
+    if(d.state) S=d.state;
+  }catch(e){}
+  busy=false; render();
+}
+function leave(){ localStorage.removeItem('pq_pid'); localStorage.removeItem('pq_name'); pid=null; myname=''; formMounted=false; lastSig=null; render(); }
+
+function render(){
+  const main=document.getElementById('main');
+  document.getElementById('who').textContent = myname ? myname : 'Party Quiz';
+  document.getElementById('myscore').textContent = (S&&S.you)?`${S.you.score} pts`:'';
+  if(!pid){
+    if(formMounted) return;            // never wipe what the player is typing
+    formMounted=true;
+    main.innerHTML=`<div class="center">
+      <h1>Join the quiz</h1>
+      <p class="muted">Enter a name the TV will show</p>
+      <input id="nm" placeholder="Your name" maxlength="16" autocomplete="off" autocapitalize="words" enterkeyhint="go">
+      <button class="primary" onclick="join()">Join</button>
+      <div class="pill" id="joinmsg">Tip: keep this tab open to answer</div>
+    </div>`;
+    const el=document.getElementById('nm');
+    el.focus();
+    el.addEventListener('keydown',e=>{if(e.key==='Enter')join()});
+    return;
+  }
+  if(!S){ main.innerHTML='<div class="center muted">Connecting\u2026</div>'; return; }
+  const y=S.you||{};
+
+  // skip redundant redraws (keeps taps/inputs stable); seconds_left ticks the timer
+  const sig=JSON.stringify([S.phase,S.qi,S.seconds_left,S.answered,S.player_count,S.question,S.answer,y.choice,y.score,
+                            (S.ranking||[]).map(r=>r.score),S.players]);
+  if(sig===lastSig) return;
+  lastSig=sig;
+
+  if(S.phase==='lobby'){
+    main.innerHTML=`<div class="center"><div class="big">\u2705 You're in!</div>
+      <div class="muted">Waiting for the host to start\u2026</div>
+      <div class="pill">${S.player_count} player${S.player_count===1?'':'s'} joined</div>
+      <button class="primary" style="background:#2a2a45;color:#f5f5ff" onclick="leave()">Change name</button></div>`;
+    return;
+  }
+  if(S.phase==='final'){
+    const top=S.ranking.slice(0,5).map(p=>`<div class="row ${p.rank===1?'top':''}"><span>${p.rank}. ${esc(p.name)}</span><span>${p.score}</span></div>`).join('');
+    main.innerHTML=`<div class="center"><div class="big">\uD83C\uDFC1 You finished #${y.rank||'-'}</div>
+      <div class="pts">${y.score||0} pts</div></div>${top}
+      <button class="primary" style="background:#2a2a45;color:#f5f5ff" onclick="leave()">Play again</button>`;
+    return;
+  }
+
+  const opts=S.options.map((o,i)=>{
+    let cls=OPT[i].cls;
+    if(S.phase==='reveal'||S.phase==='scores'){
+      if(i===S.answer) cls+=' correct'; else if(i!==y.choice) cls+=' dim';
+    } else if(y.choice===i){ cls+=' sel'; }
+    const tap=(S.phase==='question'&&y.choice==null)?`onclick="answer(${i})"`:'';
+    return `<button class="btn ${cls}" ${tap}><span class="shape">${OPT[i].shape}</span><span>${esc(o)}</span></button>`;
+  }).join('');
+
+  let banner='';
+  if(S.phase==='question'){
+    banner = y.choice!=null
+      ? `<div class="card">\uD83D\uDD12 Locked in! Waiting for others\u2026</div>`
+      : `<div class="card">Tap your answer &nbsp;\u00b7&nbsp; ${S.seconds_left!=null?S.seconds_left+'s left':''}</div>`;
+  } else if(S.phase==='reveal'||S.phase==='scores'){
+    banner = y.choice==null
+      ? `<div class="card">No answer \u2014 too slow!</div>`
+      : (y.correct ? `<div class="card">\u2705 Correct! <span class="pts">+${y.points}</span></div>`
+                   : `<div class="card">\u274C Wrong. Answer was <b>${esc(S.options[S.answer])}</b></div>`);
+  }
+
+  main.innerHTML=`
+    <div class="pill">${S.phase==='scores'?'Scoreboard':`Question ${S.qi+1} of ${S.q_total}`} \u00b7 ${esc(S.cat||'')}</div>
+    <h1>${esc(S.question)}</h1>
+    ${banner}
+    <div style="display:flex;flex-direction:column;gap:10px">${opts}</div>`;
+}
+
+async function poll(){
+  try{
+    const r=await fetch('/api/state'+(pid?`?pid=${encodeURIComponent(pid)}`:''),{cache:'no-store'});
+    S=await r.json();
+    if(pid && S.you===undefined && S.phase==='lobby'){ /* keep */ }
+    render();
+  }catch(e){}
+  setTimeout(poll,700);
+}
+render(); poll();
+
+// quick-join: /join?name=Ada (handy for testing and for typed links)
+const preName=new URLSearchParams(location.search).get('name');
+if(preName && !pid) join(preName);
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+venv/
+__pycache__/
+*.py[cod]
+*.log
+*.pid
+*.ts
+*.m3u8
+.DS_Store

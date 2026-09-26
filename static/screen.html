@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Party Quiz — Screen</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{
+    --red:#e21b3c; --blue:#1368ce; --yellow:#d89e00; --green:#26890c;
+    --bg:#12121c; --panel:#1d1d2e; --ink:#f5f5ff; --dim:#9aa0b5;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:radial-gradient(1200px 700px at 50% -10%,#2a2a45 0%,var(--bg) 60%);
+    color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    overflow:hidden;
+  }
+  #app{height:100vh;width:100vw;padding:2.2vh 2.5vw;display:flex;flex-direction:column}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:2vw;min-height:6vh}
+  .pill{background:var(--panel);border-radius:999px;padding:.5em 1.2em;font-weight:700;font-size:1.5vw;letter-spacing:.02em}
+  .cat{color:#ffd166}
+  h1.title{font-size:5vw;margin:0;font-weight:900;letter-spacing:-.02em}
+  .center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:2.2vh}
+
+  /* ---------- lobby ---------- */
+  .qrwrap{display:flex;gap:4vw;align-items:center;justify-content:center;flex-wrap:wrap}
+  .qr{background:#fff;padding:1.2vh;border-radius:2vh;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .qr img{display:block;height:38vh;width:38vh}
+  .joininfo{text-align:left}
+  .joininfo .big{font-size:3.4vw;font-weight:900;color:#7ee787;word-break:break-all}
+  .joininfo .sub{font-size:1.6vw;color:var(--dim);margin-top:1.4vh;line-height:1.5}
+  .chips{display:flex;flex-wrap:wrap;gap:.8vw;justify-content:center;max-width:80vw;margin-top:1vh}
+  .chip{background:var(--panel);border:2px solid #333a55;border-radius:999px;padding:.45em 1.1em;font-size:1.7vw;font-weight:700;
+        animation:pop .35s cubic-bezier(.2,1.6,.4,1)}
+  @keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+
+  /* ---------- question ---------- */
+  .qtext{font-size:3.5vw;font-weight:900;line-height:1.15;max-width:92vw}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:1.6vh 1.6vw;width:88vw}
+  .opt{position:relative;display:flex;align-items:center;gap:1.2vw;padding:2.2vh 2vw;border-radius:1.6vh;
+       font-size:2.3vw;font-weight:800;color:#fff;overflow:hidden;transition:.25s}
+  .opt .shape{font-size:2.6vw;opacity:.9}
+  .opt .n{position:absolute;right:1.4vw;bottom:.4vh;font-size:4.5vw;font-weight:900;opacity:.18}
+  .o0{background:var(--red)} .o1{background:var(--blue)} .o2{background:var(--yellow)} .o3{background:var(--green)}
+  .opt.dim{opacity:.28;filter:saturate(.5)}
+  .opt.correct{outline:.7vh solid #fff;transform:scale(1.03);box-shadow:0 0 60px rgba(255,255,255,.45);z-index:2}
+  .countbar{position:absolute;left:0;bottom:0;height:.9vh;background:rgba(255,255,255,.9)}
+  .timerow{display:flex;align-items:center;gap:2vw;width:88vw}
+  .timer{min-width:9vh;height:9vh;border-radius:50%;background:var(--panel);border:.6vh solid #3a3f5c;
+         display:flex;align-items:center;justify-content:center;font-size:4.2vh;font-weight:900}
+  .timer.low{border-color:#ff5b5b;color:#ff5b5b;animation:pulse .6s infinite alternate}
+  @keyframes pulse{to{transform:scale(1.08)}}
+  .answered{font-size:2vw;font-weight:800;color:var(--dim)}
+  .progress{flex:1;height:1.6vh;background:#2a2a45;border-radius:999px;overflow:hidden}
+  .progress i{display:block;height:100%;background:linear-gradient(90deg,#7ee787,#39d353);transition:width .4s linear}
+
+  /* ---------- scores ---------- */
+  .rank{width:70vw;display:flex;flex-direction:column;gap:1.2vh}
+  .row{display:flex;align-items:center;gap:2vw;background:var(--panel);border-radius:1.4vh;padding:1.6vh 2vw;font-size:2.4vw;font-weight:800;
+       animation:slide .35s ease}
+  @keyframes slide{from{transform:translateX(-3vw);opacity:0}to{transform:none;opacity:1}}
+  .row .pos{width:2.4em;color:#ffd166}
+  .row .nm{flex:1;text-align:left}
+  .row .sc{color:#7ee787}
+  .row.top{background:linear-gradient(90deg,#3a2f00,#1d1d2e);border:.35vh solid #ffd166}
+  .podium{display:flex;align-items:flex-end;gap:2vw;justify-content:center}
+  .pod{width:16vw;background:var(--panel);border-radius:1.6vh 1.6vh 0 0;padding:2vh 1vw;text-align:center}
+  .pod .nm{font-size:2vw;font-weight:800;margin-bottom:1vh}
+  .pod .sc{font-size:1.6vw;color:#7ee787}
+  .pod .h{font-size:4vw;font-weight:900;margin-top:1.5vh}
+  .pod.p1{height:34vh;background:linear-gradient(180deg,#4a3b00,#1d1d2e);border:.4vh solid #ffd166}
+  .pod.p2{height:26vh} .pod.p3{height:20vh}
+  .waiting{font-size:2vw;color:var(--dim);margin-top:1vh}
+  .hint{font-size:1.5vw;color:var(--dim)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const OPT = [
+  {cls:'o0', shape:'\u25B2'}, {cls:'o1', shape:'\u25C6'},
+  {cls:'o2', shape:'\u25CF'}, {cls:'o3', shape:'\u25A0'},
+];
+const esc = s => (s==null?'':String(s)).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let lastPhase = null;
+
+function top(s){
+  return `<div class="top">
+    <div class="pill">${s.qi>=0 ? `Q${s.qi+1} / ${s.q_total}` : 'Lobby'}</div>
+    ${s.cat?`<div class="pill cat">${esc(s.cat)}</div>`:'<div></div>'}
+    <div class="pill">${s.player_count} player${s.player_count===1?'':'s'}</div>
+  </div>`;
+}
+
+function lobby(s){
+  return `${top(s)}
+  <div class="center">
+    <h1 class="title">PARTY QUIZ</h1>
+    <div class="qrwrap">
+      <div class="qr"><img src="/qr.png?u=${encodeURIComponent(s.lan_url)}" alt="join QR"></div>
+      <div class="joininfo">
+        <div class="hint">SCAN TO JOIN, OR OPEN</div>
+        <div class="big">${esc(s.lan_url)}</div>
+        <div class="sub">Phones on the same WiFi. No app needed.<br>Host: open <b>/host</b> on your phone to start.</div>
+      </div>
+    </div>
+    <div class="chips">${s.players.map(p=>`<div class="chip">${esc(p.name)}</div>`).join('')}</div>
+    <div class="waiting">${s.player_count ? 'Waiting for the host to start\u2026' : 'Waiting for players\u2026'}</div>
+  </div>`;
+}
+
+function question(s){
+  const show = s.phase === 'reveal' || s.phase === 'scores';
+  const maxc = Math.max(1, ...s.counts);
+  const opts = s.options.map((o,i)=>{
+    const dim = show && i !== s.answer ? 'dim' : '';
+    const cor = show && i === s.answer ? 'correct' : '';
+    const bar = show ? `<div class="countbar" style="width:${(s.counts[i]/maxc*100).toFixed(1)}%"></div>` : '';
+    return `<div class="opt ${OPT[i].cls} ${dim} ${cor}">
+        <span class="shape">${OPT[i].shape}</span><span>${esc(o)}</span>
+        <span class="n">${show? s.counts[i] : ''}</span>${bar}</div>`;
+  }).join('');
+  const sl = s.seconds_left;
+  const pct = sl==null?100:Math.max(0,Math.min(100, sl/s.duration*100));
+  return `${top(s)}
+  <div class="center">
+    <div class="qtext">${esc(s.question)}</div>
+    <div class="timerow">
+      <div class="timer ${sl!=null&&sl<=5?'low':''}">${sl==null?'\u2713':sl}</div>
+      <div class="progress"><i style="width:${pct}%"></i></div>
+      <div class="answered">${s.answered} / ${s.player_count} answered</div>
+    </div>
+    <div class="grid">${opts}</div>
+  </div>`;
+}
+
+function scores(s){
+  const rows = s.ranking.map((r,i)=>`
+    <div class="row ${i===0?'top':''}"><div class="pos">${r.rank===1?'\uD83E\uDD47':r.rank===2?'\uD83E\uDD48':r.rank===3?'\uD83E\uDD49':r.rank}</div>
+    <div class="nm">${esc(r.name)}</div><div class="sc">${r.score}</div></div>`).join('');
+  return `${top(s)}
+  <div class="center"><h1 class="title" style="font-size:3.4vw">SCORES</h1><div class="rank">${rows}</div></div>`;
+}
+
+function final(s){
+  const r = s.ranking;
+  const pod = (i,cls)=>{
+    if(!r[i]) return '';
+    return `<div class="pod ${cls}"><div class="nm">${esc(r[i].name)}</div><div class="sc">${r[i].score}</div><div class="h">${i+1}</div></div>`;
+  };
+  const rest = r.slice(3).map(p=>`<div class="row"><div class="pos">${p.rank}</div><div class="nm">${esc(p.name)}</div><div class="sc">${p.score}</div></div>`).join('');
+  return `${top(s)}
+  <div class="center">
+    <h1 class="title" style="font-size:4vw">\uD83C\uDFC6 FINAL RESULTS</h1>
+    <div class="podium">${pod(1,'p2')}${pod(0,'p1')}${pod(2,'p3')}</div>
+    <div class="rank" style="width:60vw;margin-top:2vh">${rest}</div>
+    <div class="hint">Host: hit Restart for another round.</div>
+  </div>`;
+}
+
+function render(s){
+  const app = document.getElementById('app');
+  let html;
+  if (s.phase === 'lobby') html = lobby(s);
+  else if (s.phase === 'final') html = final(s);
+  else if (s.phase === 'scores') html = scores(s);
+  else html = question(s);
+  app.innerHTML = html;
+  if (s.phase !== lastPhase){ lastPhase = s.phase; document.body.style.filter='none'; }
+}
+
+async function poll(){
+  try{
+    const r = await fetch('/api/state', {cache:'no-store'});
+    render(await r.json());
+  }catch(e){ /* keep last frame */ }
+  setTimeout(poll, 650);
+}
+poll();
+</script>
+</body>
+</html>

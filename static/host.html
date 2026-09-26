@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Party Quiz — Host</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root{--bg:#12121c;--panel:#1d1d2e;--ink:#f5f5ff;--dim:#9aa0b5}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding:14px}
+  h1{font-size:22px;margin:0 0 4px}
+  .sub{color:var(--dim);font-size:14px;margin-bottom:14px}
+  .card{background:var(--panel);border-radius:14px;padding:14px;margin-bottom:12px}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  button{border:0;border-radius:12px;padding:16px;font-size:16px;font-weight:900;color:#fff;background:#2a2a45;cursor:pointer}
+  button:active{transform:scale(.98)}
+  .go{background:linear-gradient(135deg,#39d353,#7ee787);color:#08130a}
+  .warn{background:#7a3b00}
+  .row{display:flex;justify-content:space-between;padding:8px 10px;border-radius:10px;background:#0d0d16;margin-top:6px;font-weight:700}
+  .pill{display:inline-block;background:#2a2a45;border-radius:999px;padding:5px 12px;font-size:12px;font-weight:800;color:var(--dim);margin-right:6px}
+  .qr{background:#fff;border-radius:10px;padding:8px;display:inline-block}
+  .qr img{display:block;width:150px;height:150px}
+  .flex{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  code{background:#0d0d16;padding:3px 7px;border-radius:6px;color:#7ee787}
+</style>
+</head>
+<body>
+<h1>Host console</h1>
+<div class="sub">Put the TV on <code>/screen</code>. Players join with the QR / link below.</div>
+
+<div class="card">
+  <div class="flex">
+    <div class="qr"><img id="qr" src="/qr.png" alt="QR"></div>
+    <div>
+      <div class="pill">JOIN LINK</div><br>
+      <div id="joinurl" style="font-weight:900;color:#7ee787;word-break:break-all;margin:6px 0"></div>
+      <div class="pill" id="phase">lobby</div>
+      <div class="pill" id="count">0 players</div>
+      <div class="pill" id="ans">0 answered</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="btns">
+    <button class="go" onclick="act('start')">\u25B6 Start game</button>
+    <button onclick="act('reveal')">Reveal now</button>
+    <button onclick="act('scores')">Show scores</button>
+    <button onclick="act('next')">Next question \u23ED</button>
+    <button onclick="act('add_time')">+10 seconds</button>
+    <button class="warn" onclick="act('restart')">Restart</button>
+  </div>
+</div>
+
+<div class="card">
+  <div class="pill">CURRENT</div>
+  <div id="cur" style="margin-top:8px;font-weight:800">\u2014</div>
+</div>
+
+<div class="card">
+  <div class="pill">PLAYERS</div>
+  <div id="players"></div>
+</div>
+
+<script>
+const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let S=null;
+async function act(a){
+  await fetch('/api/host',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:a})});
+  await poll();
+}
+function render(){
+  if(!S) return;
+  document.getElementById('joinurl').textContent=S.lan_url;
+  document.getElementById('phase').textContent=S.phase;
+  document.getElementById('count').textContent=`${S.player_count} players`;
+  document.getElementById('ans').textContent=`${S.answered} answered`;
+  document.getElementById('cur').innerHTML = S.question
+    ? `${esc(S.cat)} \u2014 <b>${esc(S.question)}</b><br><span style="color:#9aa0b5">Answer: ${S.answer!=null?esc(S.options[S.answer]):'(hidden until reveal)'}</span>`
+    : 'Lobby \u2014 waiting to start';
+  document.getElementById('players').innerHTML = S.ranking.map(p=>`<div class="row"><span>${p.rank}. ${esc(p.name)}</span><span>${p.score}</span></div>`).join('') || '<div style="color:#9aa0b5">No players yet</div>';
+}
+async function poll(){
+  try{ S=await (await fetch('/api/state',{cache:'no-store'})).json(); render(); }catch(e){}
+  setTimeout(poll,900);
+}
+poll();
+</script>
+</body>
+</html>
