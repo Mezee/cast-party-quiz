@@ -111,6 +111,10 @@ Tested end-to-end against the local deployment:
   process.
 * A frame decoded back out of the live HLS stream showed exactly the Convex
   state (Q13/24, Art, correct 15 s countdown, 3 players).
+* **Played on a real TV** (Chromecast HD / Google TV): the receiver sat in
+  `PLAYING` pulling exactly one segment per second, confirmed by the adapter's
+  request log. Before the CORS header was added the same receiver fetched the
+  playlist and then never asked for a single segment — see finding 7.
 
 ## Verdict
 
